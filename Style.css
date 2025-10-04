@@ -1,0 +1,177 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #e9eef2;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+h1 {
+    text-align: center;
+    color: #007bff;
+    margin-bottom: 20px;
+    font-size: 2em;
+}
+
+.section-title {
+    margin-top: 40px; 
+    text-align: center; 
+    color: #333;
+    font-size: 1.5em;
+}
+
+.section-title-detail {
+    margin-top: 30px; 
+    text-align: center; 
+    color: #007bff;
+    font-size: 1.2em;
+}
+
+/* --- KONTROL TOMBOL & INPUT --- */
+#map {
+    height: 400px; 
+    width: 100%;
+    margin-top: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); 
+}
+#search-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 25px;
+    flex-wrap: wrap; 
+}
+#city-input {
+    padding: 10px; 
+    border: 1px solid #ccc; 
+    border-radius: 5px; 
+    width: 50%;
+    max-width: 350px;
+    font-size: 16px;
+}
+.btn {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    color: white;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+.btn:hover { opacity: 0.9; }
+.btn-search { background-color: #28a745; }
+.btn-all { background-color: #6c757d; }
+.btn-location { 
+    background-color: #ffc107; 
+    color: black;
+}
+.leaflet-control-zoom-in, .leaflet-control-zoom-out {
+    font-weight: bold !important; 
+    color: black !important;
+    text-shadow: none !important; 
+    background-color: white !important; 
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* --- TABEL STYLES --- */
+/* Membuat tabel bisa digulir di layar kecil */
+.table-responsive {
+    overflow-x: auto;
+    margin-top: 25px;
+}
+#weather-table {
+    width: 100%;
+    min-width: 700px; /* Lebar minimum untuk mencegah kolaps di ponsel */
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+#weather-table th {
+    cursor: pointer;
+    background-color: #007bff;
+    color: white;
+    padding: 12px;
+    border-color: #0056b3;
+}
+#weather-table th, #weather-table td {
+    border: 1px solid #e0e0e0;
+    padding: 10px;
+    text-align: center;
+    font-size: 0.95em;
+    vertical-align: middle;
+}
+#weather-table tr:nth-child(even) { background-color: #f7f9fc; }
+#weather-table tr:hover:not(:first-child) { background-color: #eef2f5; }
+
+/* Lebar Kolom yang Disesuaikan (untuk desktop) */
+#weather-table th:nth-child(1), #weather-table td:nth-child(1) { width: 25%; }
+#weather-table th:nth-child(2), #weather-table td:nth-child(2) { width: 10%; }
+#weather-table th:nth-child(3), #weather-table td:nth-child(3) { width: 15%; }
+#weather-table th:nth-child(4), #weather-table td:nth-child(4) { width: 10%; }
+#weather-table th:nth-child(5), #weather-table td:nth-child(5) { width: 15%; }
+#weather-table th:nth-child(6), #weather-table td:nth-child(6) { width: 15%; }
+#weather-table th:nth-child(7), #weather-table td:nth-child(7) { width: 10%; }
+
+
+/* --- PREDISKCI HARIAN (SUMMARY) --- */
+#daily-summary-container {
+    display: flex;
+    flex-wrap: wrap; 
+    justify-content: space-around;
+    gap: 15px;
+    padding: 15px 0;
+    border-top: 2px solid #eee;
+    margin-top: 10px;
+}
+.forecast-card {
+    flex: 1 1 180px; 
+    padding: 15px;
+    text-align: center;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+    background-color: #f8f9fa;
+}
+
+
+/* --- DETAIL PER 3 JAM (HOURLY) --- */
+#hourly-detail-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px;
+    justify-content: flex-start;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #fcfcfc;
+    margin-top: 10px;
+}
+.hourly-card {
+    flex: 0 0 calc(12.5% - 10px); /* 8 kartu per baris di desktop */
+    min-width: 80px;
+    padding: 10px 5px;
+    text-align: center;
+    border: 1px solid #f0f0f0;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    background-color: white;
+    font-size: 0.9em;
+}
+
+/* Responsif: 4 kartu per baris di layar kecil */
+@media (max-width: 768px) {
+    .hourly-card {
+        flex: 0 0 calc(25% - 10px); 
+        min-width: unset;
+    }
+}

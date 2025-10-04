@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pemantauan Cuaca & Lokasi Indonesia ID</title>
+
+    <link rel="stylesheet" href="leaflet.css" />
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Pemantauan Cuaca & Lokasi Provinsi Indonesia ID</h1>
+        
+        <p id="last-updated" style="font-style: italic; color: #555; font-size: 0.9em; text-align: center;"></p>
+
+        <div id="search-container">
+            <input type="text" id="city-input" placeholder="Masukkan nama kota, misalnya: Slawi atau Tegal">
+            <button id="search-button" class="btn btn-search">Cari Cuaca</button>
+            <button id="show-all-button" class="btn btn-all">Tampilkan Semua Provinsi</button>
+            <button id="my-location-button" class="btn btn-location">Lokasi Saya Saat Ini</button>
+        </div>
+        
+        <div id="map"></div>
+        
+        <p id="loading-message" style="display: none; text-align: center; color: #007bff; font-weight: bold;">Memuat data cuaca dan peta...</p>
+
+        <div class="table-responsive">
+            <table id="weather-table">
+                <thead>
+                    <tr>
+                        <th class="sortable">Kota</th>
+                        <th class="sortable">Suhu</th>
+                        <th>Kondisi</th>
+                        <th>Ikon</th> 
+                        <th class="sortable">Kelembaban</th>
+                        <th class="sortable">Angin</th>
+                        <th class="sortable">Hujan (1 Jam)</th> 
+                    </tr>
+                </thead>
+                <tbody id="weather-table-body">
+                </tbody>
+            </table>
+        </div>
+
+        
+        <h2 class="section-title">Prediksi Cuaca 5 Hari ke Depan (Ringkasan Harian)</h2>
+        <div id="daily-summary-container">
+            <p id="daily-forecast-message" style="width: 100%; text-align: center; color: #777; padding-bottom: 15px;">Pilih kota atau lokasi Anda untuk melihat prediksi 5 hari.</p>
+        </div>
+
+        <h3 class="section-title-detail" id="detail-header" style="display: none;">Detail Prediksi Per 3 Jam (Kapan Hujan/Cerah):</h3>
+        <div id="hourly-detail-container">
+            </div>
+    </div>
+
+    <script src="leaflet.js"></script>
+    
+    <script src="script.js"></script>
+</body>
+</html>
