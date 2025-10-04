@@ -3,8 +3,9 @@
 // =========================================================
 const apiKey = "2e964c7c31839626e6993bf684cbd9f5"; // Ganti dengan kunci API Anda yang sebenarnya!
 
+// --- DEFINISI IKON MARKER KHUSUS ---
+
 // Ikon khusus untuk menandai lokasi pengguna (marker merah)
-// Ikon ini tetap dimuat dari internet untuk kesederhanaan visual, namun shadow-nya lokal.
 const myLocationIcon = L.icon({
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
     shadowUrl: 'images/marker-shadow.png', 
@@ -14,6 +15,16 @@ const myLocationIcon = L.icon({
     shadowSize: [41, 41]
 });
 
+// Ikon khusus untuk menandai Gempa (marker oranye/emas)
+const earthquakeIcon = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
+    shadowUrl: 'images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
+// ------------------------------------
 
 const indonesianCities = [
     "Banda Aceh,ID", "Medan,ID", "Padang,ID", "Pekanbaru,ID", "Jambi,ID", 
@@ -27,19 +38,22 @@ const indonesianCities = [
     "Nabire,ID", "Wamena,ID", "Sorong,ID"
 ];
 
+// --- Variabel Global ---
 const weatherTableBody = document.getElementById("weather-table-body");
 const loadingMessage = document.getElementById("loading-message");
 const lastUpdatedDisplay = document.getElementById("last-updated"); 
 const dailySummaryContainer = document.getElementById("daily-summary-container");
 const hourlyDetailContainer = document.getElementById("hourly-detail-container");
 const detailHeader = document.getElementById("detail-header");
+const earthquakeContainer = document.getElementById("earthquake-container");
 
 let allWeatherData = []; 
 let map = null; 
 let rawForecastData = null; 
 let currentSortColumn = null;
 let isAscending = true; 
-
+let layerControl = null;
+let tectonicPlatesLayerGroup = L.layerGroup(); // Layer Grup Khusus Batas Lempeng
 
 // =========================================================
 // 1. FUNGSI UTAMA PENGAMBILAN DATA (38 KOTA)
@@ -55,17 +69,49 @@ function fetchAllWeather() {
     if (map === null) {
         map = L.map('map').setView([0.7893, 113.9213], 5); 
         
-        // --- PERUBAHAN TILE LAYER (PETA SATELIT) ---
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        // --- DEFENISI BASE LAYERS (PETA DASAR) ---
+        
+        // OpenStreetMap Standard (Peta Jalan)
+        const osmStreet = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
+        
+        // Esri Imagery (Peta Satelit/Citra)
+        const esriImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-        }).addTo(map);
-        // -------------------------------------------
+        });
+        
+        // Esri World Terrain (Peta Terrain/Relief)
+        const esriTerrain = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, IGN, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community'
+        });
+        
+        // Tambahkan OSM Street sebagai peta default
+        osmStreet.addTo(map);
+
+        // --- DEFENISI LAYER CONTROL ---
+        const baseLayers = {
+            "OSM Street (Jalan)": osmStreet,
+            "Esri Citra (Satelit)": esriImagery,
+            "Esri Terrain (Relief)": esriTerrain
+        };
+
+        const overlayLayers = {
+            "Batas Lempeng (Geologi)": tectonicPlatesLayerGroup 
+        };
+
+        // Tambahkan kontrol ke peta
+        layerControl = L.control.layers(baseLayers, overlayLayers).addTo(map);
+        // Pastikan Layer Batas Lempeng ditambahkan ke peta agar bisa dimuat saat start
+        tectonicPlatesLayerGroup.addTo(map);
+        // -----------------------------------------------------------------
 
         map.whenReady(function() {
             map.invalidateSize(); 
         });
     } else {
         map.eachLayer(layer => {
+            // Hapus semua marker yang bukan bagian dari Base/Overlay Layers
             if (layer instanceof L.Marker) {
                 map.removeLayer(layer);
             }
@@ -92,11 +138,16 @@ function fetchAllWeather() {
                     displayWeatherRow(data);
                     addMarkerToMap(data); 
                 } else {
-                    let cityWithError = result.reason.message.split('Gagal mengambil data untuk ')[1] || 'Kota Tak Dikenal';
+                    let cityWithError = result.reason.message.split('Gagal mengambil data untuk ')[1] || 'Kota Tak Dikenan';
                     displayErrorRow(cityWithError);
                 }
             });
             
+            // --- Panggil Fitur Interaktif ---
+            fetchEarthquakeData();
+            addTectonicPlates(); 
+            // --------------------------------
+
             addSortingListeners(); 
 
         })
@@ -121,6 +172,12 @@ function searchCityWeather() {
     loadingMessage.style.display = 'block';
     weatherTableBody.innerHTML = ''; 
     
+    // Hapus highlight dari baris yang sebelumnya dipilih
+    document.querySelectorAll('#weather-table-body tr').forEach(row => {
+        row.style.backgroundColor = '';
+        row.style.fontWeight = 'normal';
+    });
+    
     getCityCoordinates(cityInput)
         .then(coords => {
             return getWeatherByCoords(coords);
@@ -142,6 +199,12 @@ function searchCityWeather() {
 
 function getMyLocationWeather() {
     loadingMessage.style.display = 'block';
+    
+    // Hapus highlight dari baris yang sebelumnya dipilih
+    document.querySelectorAll('#weather-table-body tr').forEach(row => {
+        row.style.backgroundColor = '';
+        row.style.fontWeight = 'normal';
+    });
     
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -190,7 +253,8 @@ function displaySearchResult(data) {
     map.invalidateSize();
     
     map.eachLayer(layer => {
-        if (layer instanceof L.Marker) {
+        // Hapus semua marker cuaca (kecuali gempa dan lempeng/GeoJSON)
+        if (layer instanceof L.Marker && !layer.options.icon.options.iconUrl.includes('marker-icon-orange')) {
             map.removeLayer(layer);
         }
     });
@@ -385,14 +449,20 @@ function displayWeatherRow(data) {
     const humidity = data.main.humidity;
     const windSpeed = data.wind.speed.toFixed(1);
     const iconCode = data.weather[0].icon;
-    
-    // --- MENGGUNAKAN IKON LOKAL (@2x untuk tabel) ---
     const iconUrl = `images/${iconCode}@2x.png`;
-    // ------------------------------------------------
-    
     const rain1h = data.rain && data.rain['1h'] ? data.rain['1h'].toFixed(1) : '0.0';
 
     const row = weatherTableBody.insertRow();
+    
+    // Tambahkan properti cursor: pointer ke baris agar terlihat bisa diklik
+    row.style.cursor = 'pointer'; 
+    
+    // --- TAMBAHKAN EVENT LISTENER KLIK BARIS ---
+    row.addEventListener('click', () => {
+        // Panggil fungsi untuk memuat detail cuaca dan mengarahkan peta
+        loadWeatherDetailFromRow(data.coord.lat, data.coord.lon, cityName);
+    });
+    // ------------------------------------------
     
     row.insertCell().textContent = cityName; 
     row.insertCell().innerHTML = `<strong>${temp}°C</strong>`; 
@@ -404,6 +474,45 @@ function displayWeatherRow(data) {
     row.insertCell().textContent = `${windSpeed} m/s`;
     
     row.insertCell().textContent = `${rain1h} mm`; 
+}
+
+function loadWeatherDetailFromRow(lat, lon, cityName) {
+    loadingMessage.style.display = 'block';
+    
+    // Hapus highlight dari baris yang sebelumnya dipilih
+    document.querySelectorAll('#weather-table-body tr').forEach(row => {
+        row.style.backgroundColor = '';
+        row.style.fontWeight = 'normal';
+    });
+
+    getWeatherByCoords({ lat, lon })
+        .then(data => {
+            loadingMessage.style.display = 'none';
+            data.current.name = cityName; // Pertahankan nama kota asli
+            
+            // Highlight baris yang sedang diklik (Jika ada di tabel)
+            const targetRow = Array.from(weatherTableBody.querySelectorAll('tr')).find(row => 
+                row.cells[0].textContent.includes(cityName)
+            );
+            if (targetRow) {
+                targetRow.style.backgroundColor = '#ffffcc'; 
+                targetRow.style.fontWeight = 'bold';
+            }
+            
+            // Panggil fungsi yang sama dengan hasil pencarian:
+            displaySearchResult(data.current); 
+            displayDailySummary(data.dailyForecast); 
+            displayHourlyDetails(rawForecastData);
+            
+            // Gulir ke bagian detail prediksi agar pengguna langsung melihat hasilnya
+            document.getElementById('daily-summary-container').scrollIntoView({ behavior: 'smooth' });
+
+        })
+        .catch(error => {
+            loadingMessage.style.display = 'none';
+            alert(`Gagal memuat detail cuaca untuk "${cityName}".`);
+            console.error(error);
+        });
 }
 
 function displayErrorRow(city) {
@@ -504,6 +613,137 @@ function displayHourlyDetails(forecastList) {
         `;
         hourlyDetailContainer.appendChild(card);
     });
+}
+
+
+// =========================================================
+// 6. FUNGSI PENGAMBILAN DATA GEMPA (BMKG) + KLIK INTERAKTIF
+// =========================================================
+function fetchEarthquakeData() {
+    earthquakeContainer.innerHTML = '<p id="earthquake-message">Memuat data gempa...</p>';
+    const bmkgApiUrl = 'https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json';
+
+    // Hapus marker gempa lama dan lingkaran dari peta
+    map.eachLayer(layer => {
+        if (layer instanceof L.Marker && layer.options.icon && layer.options.icon.options.iconUrl.includes('marker-icon-orange')) {
+            map.removeLayer(layer);
+        }
+        // Hapus lingkaran gempa (Circle)
+        if (layer instanceof L.Circle && layer.options.color === '#dc3545') {
+            map.removeLayer(layer);
+        }
+    });
+
+    fetch(bmkgApiUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Gagal mengambil data dari BMKG.");
+            }
+            return response.json();
+        })
+        .then(data => {
+            earthquakeContainer.innerHTML = ''; 
+            if (!data.Infogempa || !data.Infogempa.gempa) {
+                earthquakeContainer.innerHTML = '<p>Tidak ada data gempa terkini yang tersedia.</p>';
+                return;
+            }
+            
+            const latestEarthquakes = data.Infogempa.gempa.filter(g => parseFloat(g.Magnitude) >= 5.0).slice(0, 5);
+
+            if (latestEarthquakes.length === 0) {
+                earthquakeContainer.innerHTML = '<p>Tidak ada gempa M 5.0+ yang tercatat baru-baru ini.</p>';
+            }
+
+            latestEarthquakes.forEach(gempa => {
+                const lonLatStr = gempa.Coordinates.split(','); 
+                const lon = parseFloat(lonLatStr[0]);
+                const lat = parseFloat(lonLatStr[1]);
+                const magnitude = parseFloat(gempa.Magnitude); 
+                
+                // Konten Popup
+                const popupContent = `
+                    <strong>GEMPA M ${gempa.Magnitude}</strong><br>
+                    Waktu: ${gempa.Tanggal} ${gempa.Jam}<br>
+                    Kedalaman: ${gempa.Kedalaman}<br>
+                    Wilayah: ${gempa.Wilayah}
+                `;
+                
+                // 1. Tambahkan Marker Oranye (Episentrum)
+                const marker = L.marker([lat, lon], {icon: earthquakeIcon})
+                    .addTo(map)
+                    .bindPopup(popupContent);
+                
+                // 2. Tambahkan Lingkaran Merah (Visualisasi Jangkauan/Dampak)
+                L.circle([lat, lon], {
+                    color: '#dc3545', 
+                    fillColor: '#f03', 
+                    fillOpacity: 0.2,
+                    radius: magnitude * 25000 
+                }).addTo(map).bindPopup(`Perkiraan area pengaruh M ${magnitude}`);
+
+                // --- LOGIKA KLIK KARTU (INTERAKTIF) ---
+                const card = document.createElement('div');
+                card.className = 'earthquake-card';
+                card.innerHTML = `
+                    <h4>Gempa ${gempa.Tanggal} ${gempa.Jam} WIB</h4>
+                    <p><strong>Lokasi:</strong> ${gempa.Wilayah}</p>
+                    <p><strong>Kedalaman:</strong> ${gempa.Kedalaman}</p>
+                    <div class="magnitude-box">M ${gempa.Magnitude}</div>
+                    <p style="margin-top: 10px;"><small>(${gempa.Lintang} - ${gempa.Bujur})</small></p>
+                `;
+                // Tambahkan event listener saat kartu diklik
+                card.addEventListener('click', () => {
+                    map.setView([lat, lon], 7); // Zoom ke lokasi gempa
+                    marker.openPopup();          // Buka popup marker
+                });
+                // ------------------------------------
+                
+                earthquakeContainer.appendChild(card);
+            });
+        })
+        .catch(error => {
+            console.error("Error mengambil data gempa:", error);
+            earthquakeContainer.innerHTML = `<p style="color: red;">Gagal memuat data gempa: ${error.message}</p>`;
+        });
+}
+
+
+// =========================================================
+// 7. FUNGSI MENAMBAHKAN BATAS LEMPENG (FIXED DUPLICATE)
+// =========================================================
+function addTectonicPlates() {
+    const platesApiUrl = 'https://raw.githubusercontent.com/fraxen/tectonicplates/master/GeoJSON/PB2002_plates.json';
+
+    // Bersihkan LayerGroup Batas Lempeng sebelum menambahkan yang baru (FIX DUPLIKAT)
+    tectonicPlatesLayerGroup.clearLayers();
+
+    fetch(platesApiUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Gagal mengambil data lempeng tektonik.");
+            }
+            return response.json();
+        })
+        .then(geoJsonData => {
+            const plateStyle = {
+                color: '#ff0000', // Merah
+                weight: 2,
+                opacity: 0.7,
+                fill: false
+            };
+
+            const geoJsonLayer = L.geoJSON(geoJsonData, {
+                style: plateStyle
+            });
+
+            // Tambahkan GeoJSON ke LayerGroup. LayerGroup ini sudah ada di Layer Control.
+            geoJsonLayer.addTo(tectonicPlatesLayerGroup); 
+
+            console.log("Batas lempeng tektonik berhasil dimuat.");
+        })
+        .catch(error => {
+            console.error("Gagal memuat batas lempeng tektonik:", error);
+        });
 }
 
 
